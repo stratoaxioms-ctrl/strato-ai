@@ -104,3 +104,50 @@ def run_strato_ai(df, mtwb_weight, risk_weight, macro_weather):
     df = df.sort_values("Final_Score", ascending=False)
 
     return df
+    def run_strato_ai_screener(df):
+    """
+    Main function called by app.py.
+    It calculates risk scores, MTWB impact score,
+    atmospheric layers, cluster labels, and outputs
+    the processed dataframe.
+    """
+
+    # --- Safety check ---
+    if df is None or df.empty:
+        return df
+
+    # --- REQUIRED COLUMNS ---
+    required = [
+        "ATMO_Pressure", "ATMO_Heat", "ATMO_Turbulence",
+        "ESG_Score", "Community_Impact", "Renewables_Use"
+    ]
+    for col in required:
+        if col not in df.columns:
+            df[col] = 0
+
+    # --- Impact Score ---
+    df["Impact_Score"] = (
+        df["ESG_Score"] * 0.4 +
+        df["Community_Impact"] * 0.3 +
+        df["Renewables_Use"] * 0.3
+    )
+
+    # --- Atmospheric Risk Index ---
+    df["Atmospheric_Risk"] = (
+        df["ATMO_Pressure"] * 0.3 +
+        df["ATMO_Heat"] * 0.4 +
+        df["ATMO_Turbulence"] * 0.3
+    )
+
+    # --- Cluster Logic (simple placeholder for ML model) ---
+    def assign_cluster(x):
+        if x < 20: return "Troposphere"
+        if x < 40: return "Stratosphere"
+        if x < 60: return "Mesosphere"
+        if x < 80: return "Thermosphere"
+        return "Exosphere"
+
+    df["Atmospheric_Layer"] = df["Atmospheric_Risk"].apply(assign_cluster)
+
+    return df
+

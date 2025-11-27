@@ -1,47 +1,32 @@
 import streamlit as st
 import pandas as pd
-from atmo_screener import run_strato_ai_screener
 import plotly.express as px
+from atmo_screener import run_strato_ai_screener
 
-st.set_page_config(
-    page_title="STRATO-AI",
-    page_icon="☁️",
-    layout="wide"
-)
+st.set_page_config(page_title="STRATO-AI", layout="wide")
 
-st.title("☁️ STRATO-AI — Atmospheric Investment Intelligence")
-st.write("AI-powered, mission-aligned atmospheric screener for portfolio decisions.")
+st.title("🌤️ STRATO-AI — Atmospheric Investment Screener")
+st.write("Upload your dataset and generate atmospheric cluster signals.")
 
-st.sidebar.header("Client Preferences — Connor Barwin / MTWB")
-risk = st.sidebar.slider("Risk Tolerance", 0, 100, 40)
-impact_weight = st.sidebar.slider("MTWB Impact Weight", 0, 100, 70)
-weather = st.sidebar.selectbox(
-    "ATMO-Weather Mode",
-    ["Clear Skies (Bullish)", "Jetstream Momentum", "Heatwave Innovation", "Turbulence (Risk-Off)", "Solar Flare (Defensive)"]
-)
-
-uploaded = st.file_uploader("Upload atmo_input.csv", type=["csv"])
+uploaded = st.file_uploader("Upload your atmo_input.csv", type=["csv"])
 
 if uploaded:
     df = pd.read_csv(uploaded)
-    st.subheader("Uploaded Data Preview")
-    st.dataframe(df.head())
+    st.subheader("📄 Input Preview")
+    st.dataframe(df)
 
-    with st.spinner("Analyzing atmosphere..."):
-        results = run_strato_ai_screener(df, risk, impact_weight, weather)
+    st.subheader("⚙️ MTWB Weighting")
+    mtwb_weight = st.slider("Mission Score Weight", 0.0, 1.0, 0.3)
 
-    st.subheader("Atmospheric Layer Classification")
-    st.dataframe(results)
+    st.subheader("🌦️ Market Weather")
+    weather = st.selectbox("Select Market Weather Condition", [
+        "Clear Skies", "Jetstreams", "Heatwave", "Turbulence", "Solar Flare"
+    ])
 
-    layer_plot = px.histogram(results, x="Layer", title="STRATO-AI Layer Distribution")
-    st.plotly_chart(layer_plot, use_container_width=True)
+    if st.button("Run STRATO-AI"):
+        result = run_strato_ai_screener(df, mtwb_weight, weather)
+        st.success("STRATO-AI completed!")
+        st.dataframe(result)
 
-    st.download_button(
-        "Download STRATO-AI Output CSV",
-        results.to_csv(index=False),
-        "strato_ai_output.csv",
-        "text/csv"
-    )
-
-else:
-    st.info("Upload your atmo_input.csv to begin.")
+        csv = result.to_csv(index=False).encode("utf-8")
+        st.download_button("Download Results CSV", csv, "strato_output.csv", "text/csv")

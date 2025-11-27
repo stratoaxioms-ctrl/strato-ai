@@ -1,153 +1,46 @@
 import pandas as pd
-import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.cluster import KMeans
-from sklearn.ensemble import RandomForestRegressor
 
-# ---------------------------------------------------------
-#  STRATO-AI — Atmospheric Investment Intelligence Engine
-# ---------------------------------------------------------
+def run_strato_ai_screener(df, mtwb_weight, weather):
+    df = df.copy()
 
-def scale(df, cols):
+    numeric_cols = ["ATMO_Pressure", "ATMO_Heat", "ATMO_Turbulence", "MTWB_Impact"]
+    df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
+
     scaler = MinMaxScaler()
-    df[cols] = scaler.fit_transform(df[cols])
-    return df
+    df[["P_scaled", "H_scaled", "T_scaled", "I_scaled"]] = scaler.fit_transform(df[numeric_cols])
 
-def compute_mt_wb_impact(df):
-    impact_cols = ["ESG", "Sustainability", "Community", "DEI", "Safety", "Renewables"]
-    for col in impact_cols:
-        if col not in df.columns:
-            df[col] = 0.5  # neutral if missing
-    df["MTWB_Impact_Score"] = df[impact_cols].mean(axis=1)
-    return df
+    km = KMeans(n_clusters=5, n_init=10, random_state=0)
+    df["Cluster"] = km.fit_predict(df[["P_scaled", "H_scaled", "T_scaled", "I_scaled"]])
 
-def compute_atmo_features(df):
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    df = scale(df, numeric_cols)
-    df["ATMO_Pressure"] = df[numeric_cols].mean(axis=1)
-    df["ATMO_Heat"] = df[numeric_cols].std(axis=1)
-    df["ATMO_Turbulence"] = np.abs(df[numeric_cols].diff(axis=1)).mean(axis=1)
-    df = df.fillna(0)
-    return df
-
-def kmeans_layer_classification(df):
-    kmeans = KMeans(n_clusters=5, random_state=42, n_init='auto')
-    clusters = kmeans.fit_predict(df[["ATMO_Pressure", "ATMO_Heat", "ATMO_Turbulence"]])
-    df["Cluster"] = clusters
-
-    mapping = {
+    layer_map = {
         0: "Troposphere",
         1: "Stratosphere",
         2: "Mesosphere",
         3: "Thermosphere",
         4: "Exosphere"
     }
-    df["Atmospheric_Layer"] = df["Cluster"].map(mapping)
-    return df
+    df["Layer"] = df["Cluster"].map(layer_map)
 
-def random_forest_priority(df):
-    if "1Y_Return" not in df.columns:
-        df["1Y_Return"] = np.random.uniform(-0.1, 0.2, size=len(df))
+    weather_boost = {
+        "Clear Skies": {"Troposphere": 4, "Stratosphere": 4},
+        "Jetstreams": {"Thermosphere": 5, "Exosphere": 3},
+        "Heatwave": {"Exosphere": 6},
+        "Turbulence": {"Stratosphere": 5, "Troposphere": 3},
+        "Solar Flare": {"Troposphere": 8, "Stratosphere": 6}
+    }
 
-    features = df.select_dtypes(include=[np.number]).drop(columns=["1Y_Return"], errors='ignore')
-    target = df["1Y_Return"]
-
-    rf = RandomForestRegressor(n_estimators=200, random_state=42)
-    rf.fit(features, target)
-
-    df["Priority_Score"] = rf.predict(features)
-    df["Priority_Score"] = MinMaxScaler().fit_transform(df[["Priority_Score"]])
-    return df
-
-def apply_macro_weather(df, macro):
-    if macro == "Clear Skies":
-        df["Weather_Adjust"] = df["Priority_Score"] + 0.05
-
-    elif macro == "Jetstreams":
-        df["Weather_Adjust"] = df["Priority_Score"] + (df["Atmospheric_Layer"] == "Thermosphere") * 0.07
-
-    elif macro == "Heatwave":
-        df["Weather_Adjust"] = df["Priority_Score"] + (df["Atmospheric_Layer"] == "Exosphere") * 0.09
-
-    elif macro == "Turbulence":
-        df["Weather_Adjust"] = df["Priority_Score"] - (df["Atmospheric_Layer"] == "Mesosphere") * 0.10
-
-    elif macro == "Solar Flare":
-        df["Weather_Adjust"] = df["Priority_Score"] - 0.05
-    else:
-        df["Weather_Adjust"] = df["Priority_Score"]
-
-    return df
-
-def final_weight(df, mtwb_weight, risk_weight):
-    df["Final_Score"] = (
-        df["Weather_Adjust"] * (0.6 - risk_weight)
-        + df["MTWB_Impact_Score"] * mtwb_weight
-        + df["Priority_Score"] * (0.4 + risk_weight)
-    )
-    df["Final_Score"] = MinMaxScaler().fit_transform(df[["Final_Score"]])
-    return df
-
-# ---------------------------------------------------------
-# MASTER FUNCTION — called from the Streamlit app
-# ---------------------------------------------------------
-
-def run_strato_ai(df, mtwb_weight, risk_weight, macro_weather):
-
-    df = compute_mt_wb_impact(df)
-    df = compute_atmo_features(df)
-    df = kmeans_layer_classification(df)
-    df = random_forest_priority(df)
-    df = apply_macro_weather(df, macro_weather)
-    df = final_weight(df, mtwb_weight, risk_weight)
-
-    df = df.sort_values("Final_Score", ascending=False)
-
-    return df
-    def run_strato_ai_screener(df):
-    """
-    Main function called by app.py.
-    It calculates risk scores, MTWB impact score,
-    atmospheric layers, cluster labels, and outputs
-    the processed dataframe.
-    """
-
-    # --- Safety check ---
-    if df is None or df.empty:
-        return df
-
-    # --- REQUIRED COLUMNS ---
-    required = [
-        "ATMO_Pressure", "ATMO_Heat", "ATMO_Turbulence",
-        "ESG_Score", "Community_Impact", "Renewables_Use"
-    ]
-    for col in required:
-        if col not in df.columns:
-            df[col] = 0
-
-    # --- Impact Score ---
-    df["Impact_Score"] = (
-        df["ESG_Score"] * 0.4 +
-        df["Community_Impact"] * 0.3 +
-        df["Renewables_Use"] * 0.3
+    df["ATMO_Score"] = (
+        df["P_scaled"] * 0.25 +
+        df["H_scaled"] * 0.25 +
+        df["T_scaled"] * 0.25 +
+        df["I_scaled"] * mtwb_weight
     )
 
-    # --- Atmospheric Risk Index ---
-    df["Atmospheric_Risk"] = (
-        df["ATMO_Pressure"] * 0.3 +
-        df["ATMO_Heat"] * 0.4 +
-        df["ATMO_Turbulence"] * 0.3
-    )
+    df["ATMO_Score"] += df["Layer"].map(lambda x: weather_boost.get(weather, {}).get(x, 0))
 
-    # --- Cluster Logic (simple placeholder for ML model) ---
-    def assign_cluster(x):
-        if x < 20: return "Troposphere"
-        if x < 40: return "Stratosphere"
-        if x < 60: return "Mesosphere"
-        if x < 80: return "Thermosphere"
-        return "Exosphere"
+    df["Rank"] = df["ATMO_Score"].rank(ascending=False)
 
-    df["Atmospheric_Layer"] = df["Atmospheric_Risk"].apply(assign_cluster)
-
-    return df
+    return df.sort_values("Rank")
 

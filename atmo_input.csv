@@ -1,0 +1,6 @@
+ticker,price_local,market_cap_m,pe,fcf_m,rev_growth_pct,eps_std_4q,beta,de_ratio,esg_score,community_score,analyst_sent,momentum_30d,momentum_90d,sector,rd_expense_m,dividend_yield,1Y_Return,Sustainability,DEI,Safety,Renewables
+AAPL,175,2500000,28.5,80000,12,0.05,1.0,1.5,85,60,0.3,0.03,0.12,Technology,24000,0.006,0.10,0.8,0.7,0.9,0.6
+NVDA,400,1200000,60.2,12000,65,0.20,1.8,0.5,70,40,0.6,0.25,0.80,Semiconductors,2500,0.0,1.20,0.6,0.5,0.6,0.3
+NEE,75,180000,30.5,3500,6,0.02,0.6,1.0,92,70,0.1,0.01,0.03,Utilities,300,0.035,0.06,0.9,0.8,0.95,0.8
+JNJ,150,430000,22,7000,5,0.01,0.6,0.4,88,55,0.1,0.01,0.02,Healthcare,1200,0.028,0.05,0.85,0.8,0.88,0.5
+TSLA,220,800000,80,6000,30,0.25,2.0,0.6,60,30,0.4,0.20,0.60,Automotive,2000,0.0,0.40,0.5,0.6,0.4,0.7
